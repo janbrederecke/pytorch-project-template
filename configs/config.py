@@ -4,7 +4,7 @@ from types import SimpleNamespace
 config = SimpleNamespace()
 
 # MLflow
-config.MLFLOW_EXPERIMENT = "1"
+config.MLFLOW_EXPERIMENT = "Cool Name"
 
 # Data Paths
 config.TRAIN_DF = "./data/preprocessed/metadata.csv"
@@ -34,7 +34,7 @@ config.SAVE_FIRST_BATCH_PREDS = False
 config.SAVE_WEIGHTS_ONLY = True
 
 # Evaluation
-config.EVAL_EPOCHS = 10
+config.EVAL_EPOCHS = 1
 config.EVAL_STEPS = 0
 config.EVAL_DDP = True
 config.CALCULATE_METRIC_EVERY_N_EPOCHS = 1
@@ -85,7 +85,7 @@ config.SYNCBN = True
 config.FIND_UNUSED_PARAMETERS = False
 
 # Testing
-config.DATA_SAMPLE = 5_000
+config.DATA_SAMPLE = 50_000
 
 # Augmentations
 config.MIXUP = False
@@ -112,7 +112,8 @@ config.DROP_LAST = True
 config.USE_CUSTOM_BATCH_SAMPLER = False
 
 # Scheduler
-config.SCHEDULER = "steplr"
+config.SCHEDULER = "ReduceLROnPlateau"
+config.SCHEDULER_STEP_AFTER_VALIDATION = True if config.SCHEDULER == "ReduceLROnPlateau" else False
 config.WARMUP = 0.0
 
 ## StepLR

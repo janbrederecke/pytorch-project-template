@@ -252,7 +252,7 @@ def train(config):
                 if config.DISTRIBUTED:
                     torch.cuda.synchronize()
 
-                if scheduler is not None:
+                if scheduler is not None and not config.SCHEDULER_STEP_AFTER_VALIDATION:
                     scheduler.step()
 
                 if config.LOCAL_RANK == 0 and config.CURRENT_STEP % config.BATCH_SIZE == 0:
@@ -291,7 +291,10 @@ def train(config):
                     if config.LOCAL_RANK == 0:
                         val_score = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
             else:
-                val_score = 0
+                val_score = {"score": 0.0}
+
+            if scheduler is not None and config.SCHEDULER_STEP_AFTER_VALIDATION:
+                scheduler.step(val_score["score"])
 
                 # Check if this is the best validation metric and save the model
             if config.LOCAL_RANK == 0:
@@ -318,7 +321,7 @@ def train(config):
                         _ = get_preds(model, train_val_dataloader, config, pre=config.PRE_TRAIN_VAL)
 
         if not config.VALID and not config.TRAIN_VAL:
-            val_score = 0
+            val_score = {"score": 0.0}
 
         if config.DISTRIBUTED:
             torch.distributed.barrier()
