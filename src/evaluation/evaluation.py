@@ -122,9 +122,9 @@ def evaluate(model, val_dataloader, config, pre="val", current_epoch=0):
 
         if config.POST_PROCESSING:
             output_post_processing = config.post_processing_pipeline(config, val_data, val_df)
-            val_score = config.calculate_metric(config, output_post_processing, val_df, pre)
+            val_score, oof_predictions = config.calculate_metric(config, output_post_processing, val_df, pre)
         else:
-            val_score = config.calculate_metric(config, val_data, val_df, pre)
+            val_score, oof_predictions = config.calculate_metric(config, val_data, val_df, pre)
 
         if type(val_score) is not dict:
             val_score = {"score": val_score}
@@ -135,4 +135,4 @@ def evaluate(model, val_dataloader, config, pre="val", current_epoch=0):
     if config.DISTRIBUTED:
         torch.distributed.barrier()
 
-    return val_score
+    return val_score, oof_predictions

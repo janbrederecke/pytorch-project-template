@@ -21,6 +21,12 @@ all_folds:
 one_fold:
 	$(RUN_CMD) main.py --fold 0 --config $(CONFIG);
 
+# Run training on remaining folds after running it on fold 0
+remaining_folds:
+	@for fold in $$(seq 1 $$(($(FOLDS)-1))); do \
+		$(RUN_CMD) main.py --fold $$fold --config $(CONFIG); \
+	done
+
 # Run training on all folds combined and validate on fold 0
 all_data:
 	$(RUN_CMD) main.py --fold -1 --config $(CONFIG);

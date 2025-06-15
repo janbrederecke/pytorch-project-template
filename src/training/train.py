@@ -267,10 +267,10 @@ def train(config):
                 if config.EVAL_STEPS != 0:
                     if i % config.EVAL_STEPS == 0:
                         if config.DISTRIBUTED and config.EVAL_DDP:
-                            val_score = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
+                            val_score, _ = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
                         else:
                             if config.LOCAL_RANK == 0:
-                                val_score = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
+                                val_score, _ = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
                     else:
                         val_score = 0
 
@@ -286,10 +286,12 @@ def train(config):
         if config.VALID:
             if (epoch + 1) % config.EVAL_EPOCHS == 0 or (epoch + 1) == config.EPOCHS:
                 if config.DISTRIBUTED and config.EVAL_DDP:
-                    val_score = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
+                    val_score, oof_predictions = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
                 else:
                     if config.LOCAL_RANK == 0:
-                        val_score = evaluate(model, val_dataloader, config, pre="val", current_epoch=epoch)
+                        val_score, oof_predictions = evaluate(
+                            model, val_dataloader, config, pre="val", current_epoch=epoch
+                        )
             else:
                 val_score = {"score": 0.0}
 
@@ -298,12 +300,14 @@ def train(config):
 
                 # Check if this is the best validation metric and save the model
             if config.LOCAL_RANK == 0:
+                for k, v in val_score.items():
+                    mlflow.log_metric(k, v, config.CURRENT_STEP)
                 if (config.HIGH_METRIC_BETTER and val_score["score"] > best_val_metric) or (
                     not config.HIGH_METRIC_BETTER and val_score["score"] < best_val_metric
                 ):
                     best_val_metric = val_score["score"]
                     config.logger.info(f"New best validation metric: {best_val_metric}")
-                    mlflow.log_metric("val_metric", best_val_metric, config.CURRENT_STEP)
+                    mlflow.log_metric("best_val_metric", best_val_metric, config.CURRENT_STEP)
 
                     # Save the best model checkpoint
                     checkpoint = create_checkpoint(config, model, optimizer, epoch, scheduler=scheduler, scaler=scaler)
@@ -311,6 +315,20 @@ def train(config):
                         checkpoint,
                         f"{config.OUTPUT_DIRECTORY}/{config.CONFIG}/fold{config.FOLD}/checkpoint_best_val_score_seed{config.SEED}.pth",
                     )
+                    # Save OOF predictions for the best model checkpoint
+                    if oof_predictions is not None:
+                        solution = oof_predictions.get("solution")
+                        submission = oof_predictions.get("submission")
+                        if solution is not None:
+                            solution.to_csv(
+                                f"{config.OUTPUT_DIRECTORY}/{config.CONFIG}/fold{config.FOLD}/oof_solution_seed{config.SEED}.csv",
+                                index=False,
+                            )
+                        if submission is not None:
+                            submission.to_csv(
+                                f"{config.OUTPUT_DIRECTORY}/{config.CONFIG}/fold{config.FOLD}/oof_submission_seed{config.SEED}.csv",
+                                index=False,
+                            )
 
         if config.TRAIN_VAL:
             if (epoch + 1) % config.CALCULATE_METRIC_EVERY_N_EPOCHS == 0 or (epoch + 1) == config.EPOCHS:
@@ -350,9 +368,11 @@ def train(config):
         f"{config.OUTPUT_DIRECTORY}/{config.CONFIG}/fold{config.FOLD}",
     )
     mlflow.log_artifact(f"./configs/{config.CONFIG}.py")
+    mlflow.log_artifact(f"./src/model/{config.MODEL_FILE_NAME}.py")
+    mlflow.log_artifact(f"./src/dataset/{config.DATASET_FILE_NAME}.py")
 
     # Ensure the process group is destroyed
     if torch.distributed.is_initialized():
         torch.distributed.destroy_process_group()
 
-    return val_score
+    return best_val_metric

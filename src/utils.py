@@ -852,6 +852,11 @@ def get_scheduler(config, optimizer, total_steps):
     elif config.SCHEDULER == "CosineAnnealingLR":
         T_max = int(np.ceil(0.5 * total_steps))
         scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=1e-8)
+    elif config.SCHEDULER == "ReduceLROnPlateau":
+        mode = "max" if config.HIGH_METRIC_BETTER else "min"
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode=mode, factor=config.FACTOR, patience=config.PATIENCE, min_lr=0.00001
+        )
     else:
         scheduler = None
 

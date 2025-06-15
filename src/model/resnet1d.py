@@ -153,7 +153,7 @@ class ResNet1d(nn.Module):
 
         # Linear layer
         n_filters_last, n_samples_last = blocks_dim[-1]
-        last_layer_dim = n_filters_last  # * n_samples_last
+        last_layer_dim = n_filters_last * n_samples_last
         self.lin = nn.Linear(last_layer_dim, n_classes)
         self.n_blk = len(blocks_dim)
 
@@ -228,7 +228,7 @@ class Net(nn.Module):
             kernel_size=config.KERNEL_SIZE,
             dropout_rate=config.DROPOUT_RATE,
         )
-        self.calculate_loss = torch.nn.BCEWithLogitsLoss(reduction="none")
+        self.calculate_loss = torch.nn.CrossEntropyLoss()
         self.mixup = Mixup(mix_beta=config.MIX_BETA, mixadd=config.MIX_ADD)
 
     def forward(self, batch):
@@ -236,19 +236,16 @@ class Net(nn.Module):
         x = batch["input"]
         if "target" in batch.keys():
             y = batch["target"]
-        if self.training and self.config.MIXUP:
-            if torch.rand(1)[0] < self.config.MIXUP_P:
-                x, y = self.mixup(x, y)
+        # if self.training and self.config.MIXUP:
+        #     if torch.rand(1)[0] < self.config.MIXUP_P:
+        #         x, y = self.mixup(x, y)
         out = self.backbone(x)
 
         outputs = {}
 
         # Calculate loss if target is available (training, validation)
         if "target" in batch.keys():
-            outputs["loss"] = torch.stack([self.calculate_loss(out[i], y[i])[0] for i in range(len(out))]).mean()
+            outputs["loss"] = torch.stack([self.calculate_loss(out[i], y.long()[i]) for i in range(len(out))]).mean()
         if not self.training:
-            outputs["logits"] = out  # [-1]
-            if "location" in batch:
-                outputs["location"] = batch["location"]
-
+            outputs["logits"] = out
         return outputs
